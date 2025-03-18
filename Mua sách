@@ -1,0 +1,100 @@
+using System;
+using System.Collections.Generic;
+using System.ComponentModel;
+using System.Data;
+using System.Drawing;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using System.Windows.Forms;
+using System.Data.SqlClient;
+
+namespace QLTV
+{
+    public partial class UserForm : Form
+    {
+        public UserForm()
+        {
+            InitializeComponent();
+        }
+
+       private string connectionString = "Server=DESKTOP-EUAE3E3; Database=MANAGE_LIB; User Id=sa; Password=123123;";
+
+
+        private void UserForm_Load(object sender, EventArgs e)
+        {
+            LoadBooks();
+        }
+
+        private void LoadBooks()
+        {
+            string query = "SELECT * FROM Books";
+            using (SqlConnection conn = new SqlConnection(connectionString))
+            using (SqlDataAdapter adapter = new SqlDataAdapter(query, conn))
+            {
+                DataTable dt = new DataTable();
+                adapter.Fill(dt);
+                dgvBooks.DataSource = dt;
+            }
+        }
+
+        private void btn_BuyBook_Click(object sender, EventArgs e)
+        {
+            if (dgvBooks.SelectedRows.Count == 0)
+            {
+                MessageBox.Show("Vui lòng chọn một cuốn sách!", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            int bookID = Convert.ToInt32(dgvBooks.SelectedRows[0].Cells["BookID"].Value);
+            int quantity = int.Parse(txt_quantity.Text);
+            decimal price = Convert.ToDecimal(dgvBooks.SelectedRows[0].Cells["Price"].Value);
+            decimal totalAmount = quantity * price;
+
+            using (SqlConnection conn = new SqlConnection(connectionString))
+            {
+                conn.Open();
+                SqlTransaction transaction = conn.BeginTransaction();
+
+                try
+                {
+                    // Kiểm tra số lượng sách còn trong kho
+                    string checkQuery = "SELECT Quantity FROM Books WHERE BookID = @BookID";
+                    SqlCommand checkCmd = new SqlCommand(checkQuery, conn, transaction);
+                    checkCmd.Parameters.AddWithValue("@BookID", bookID);
+                    int availableQuantity = (int)checkCmd.ExecuteScalar();
+
+                    if (availableQuantity < quantity)
+                    {
+                        MessageBox.Show("Số lượng không đủ!", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        return;
+                    }
+
+                    // Giảm số lượng sách trong kho
+                    string updateQuery = "UPDATE Books SET Quantity = Quantity - @Quantity WHERE BookID = @BookID";
+                    SqlCommand updateCmd = new SqlCommand(updateQuery, conn, transaction);
+                    updateCmd.Parameters.AddWithValue("@Quantity", quantity);
+                    updateCmd.Parameters.AddWithValue("@BookID", bookID);
+                    updateCmd.ExecuteNonQuery();
+// Ghi nhận giao dịch vào bảng Sales
+                    string insertQuery = "INSERT INTO Sales (BookID, Quantity, TotalAmount, SaleDate) VALUES (@BookID, @Quantity, @TotalAmount, GETDATE())";
+                    SqlCommand insertCmd = new SqlCommand(insertQuery, conn, transaction);
+                    insertCmd.Parameters.AddWithValue("@BookID", bookID);
+                    insertCmd.Parameters.AddWithValue("@Quantity", quantity);
+                    insertCmd.Parameters.AddWithValue("@TotalAmount", totalAmount);
+                    insertCmd.ExecuteNonQuery();
+
+                    // Commit transaction
+                    transaction.Commit();
+                    MessageBox.Show("Mua sách thành công!", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    LoadBooks(); // Cập nhật danh sách sách
+                }
+                catch (Exception ex)
+                {
+                    transaction.Rollback();
+                    MessageBox.Show("Lỗi mua sách: " + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+        }
+    }
+}
