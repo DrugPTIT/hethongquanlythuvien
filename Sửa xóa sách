@@ -1,0 +1,62 @@
+MessageBox.Show("Vui lòng chọn một cuốn sách để xóa!", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return;
+            }
+
+            int bookID = Convert.ToInt32(dgvBooks.SelectedRows[0].Cells["BookID"].Value);
+
+            DialogResult confirm = MessageBox.Show("Bạn có chắc chắn muốn xóa sách này?", "Xác nhận", MessageBoxButtons.YesNo, MessageBoxIcon.Warning);
+            if (confirm == DialogResult.Yes)
+            {
+                try
+                {
+                    using (SqlConnection conn = new SqlConnection(connectionString))
+                    {
+                        conn.Open();
+                        string query = "DELETE FROM Books WHERE BookID = @BookID";
+                        SqlCommand cmd = new SqlCommand(query, conn);
+                        cmd.Parameters.AddWithValue("@BookID", bookID);
+                        cmd.ExecuteNonQuery();
+                    }
+
+                    MessageBox.Show("Xóa sách thành công!", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+                    LoadBooks();
+                }
+                catch (SqlException ex)
+                {
+                    if (ex.Number == 547) // Mã lỗi SQL Server khi vi phạm khóa ngoại
+                    {
+                        MessageBox.Show("Không thể xóa sách vì sách đang có thông tin mua hoặc bán  !", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                    else
+                    {
+                        MessageBox.Show("Đã xảy ra lỗi: " + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                }
+                
+            }
+        }
+
+        int bookID = 0;
+        private void dgvBooks_CellContentClick(object sender, DataGridViewCellEventArgs e)
+        {
+            if (e.RowIndex >= 0)
+            { 
+                bookID = Convert.ToInt32(dgvBooks.Rows[e.RowIndex].Cells["BookID"].Value);
+                txt_title.Text = dgvBooks.Rows[e.RowIndex].Cells["Title"].Value.ToString();
+                txt_author.Text = dgvBooks.Rows[e.RowIndex].Cells["Author"].Value.ToString();
+                txt_price.Text = dgvBooks.Rows[e.RowIndex].Cells["Price"].Value.ToString();
+                txt_quantity.Text = dgvBooks.Rows[e.RowIndex].Cells["Quantity"].Value.ToString();
+            }
+        }
+
+        private void btn_update_Click(object sender, EventArgs e)
+        {
+            string title = txt_title.Text.Trim();
+            string author = txt_author.Text.Trim();
+            decimal price;
+            int quantity;
+
+            if (string.IsNullOrEmpty(title) || string.IsNullOrEmpty(author) ||
+                !decimal.TryParse(txt_price.Text, out price) ||
+                !int.TryParse(txt_quantity.Text, out quantity))
+            {
