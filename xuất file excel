@@ -1,0 +1,43 @@
+private void ExportToExcel_Interop()
+{
+    if (dgvStatistics.Rows.Count == 0)
+    {
+        MessageBox.Show("Không có dữ liệu để xuất!", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+        return;
+    }
+
+    Excel.Application excelApp = new Excel.Application();
+    Excel.Workbook workbook = excelApp.Workbooks.Add();
+    Excel.Worksheet worksheet = (Excel.Worksheet)workbook.Sheets[1];
+
+    // Xuất tiêu đề cột
+    for (int i = 0; i < dgvStatistics.Columns.Count; i++)
+    {
+        worksheet.Cells[1, i + 1] = dgvStatistics.Columns[i].HeaderText;
+    }
+
+    // Xuất dữ liệu
+    for (int i = 0; i < dgvStatistics.Rows.Count; i++)
+    {
+        for (int j = 0; j < dgvStatistics.Columns.Count; j++)
+        {
+            worksheet.Cells[i + 2, j + 1] = dgvStatistics.Rows[i].Cells[j].Value?.ToString() ?? "";
+        }
+    }
+
+    // Hộp thoại lưu file
+    SaveFileDialog saveDialog = new SaveFileDialog
+    {
+        Filter = "Excel Files (*.xlsx)|*.xlsx",
+        FileName = "Revenue_Report.xlsx"
+    };
+
+    if (saveDialog.ShowDialog() == DialogResult.OK)
+    {
+        workbook.SaveAs(saveDialog.FileName);
+        MessageBox.Show("Xuất file thành công!", "Thông báo", MessageBoxButtons.OK, MessageBoxIcon.Information);
+    }
+
+    workbook.Close();
+    excelApp.Quit();
+}
